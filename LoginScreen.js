@@ -1,6 +1,16 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
+import { 
+  View, 
+  Text, 
+  TextInput, 
+  TouchableOpacity, 
+  StyleSheet, 
+  Image, 
+  KeyboardAvoidingView, 
+  Platform 
+} from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import Ionicons from 'react-native-vector-icons/Ionicons'; // Assumindo que já está instalado
 
 export default function LoginScreen({ navigation }) {
   const [email, setEmail] = useState('');
@@ -35,46 +45,144 @@ export default function LoginScreen({ navigation }) {
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>TudoMais+</Text>
-      <Text style={styles.subtitle}>Loja de Materiais de Limpeza</Text>
+    <KeyboardAvoidingView 
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
+      style={styles.container}
+    >
+      <View style={styles.content}>
+        {/* Logo da Empresa */}
+        <Image 
+          source={require('./assets/logo-tudomais.png')} // Certifique-se de que o caminho e nome da imagem estejam corretos
+          style={styles.logo} 
+          resizeMode="contain"
+        />
 
-      {/* Exibição do Erro */}
-      {erro !== '' && <Text style={styles.errorText}>{erro}</Text>}
+        <Text style={styles.pageTitle}>ENTRAR</Text>
 
-      <TextInput 
-        style={styles.input} 
-        placeholder="E-mail" 
-        value={email} 
-        onChangeText={(t) => { setEmail(t); setErro(''); }} 
-        autoCapitalize="none" 
-      />
+        {/* Exibição do Erro */}
+        {erro !== '' && <Text style={styles.errorText}>{erro}</Text>}
 
-      <TextInput 
-        style={styles.input} 
-        placeholder="Senha" 
-        value={password} 
-        onChangeText={(t) => { setPassword(t); setErro(''); }} 
-        secureTextEntry 
-      />
+        {/* Input de E-mail com Ícone */}
+        <View style={styles.inputContainer}>
+          <Ionicons name="mail-outline" size={20} color="#fff" style={styles.icon} />
+          <TextInput 
+            style={styles.input} 
+            placeholder="E-mail" 
+            placeholderTextColor="#A0AAB5"
+            value={email} 
+            onChangeText={(t) => { setEmail(t); setErro(''); }} 
+            autoCapitalize="none" 
+            keyboardType="email-address"
+          />
+        </View>
 
-      <TouchableOpacity style={styles.button} onPress={handleLogin}>
-        <Text style={styles.buttonText}>Entrar</Text>
-      </TouchableOpacity>
+        {/* Input de Senha com Ícone */}
+        <View style={styles.inputContainer}>
+          <Ionicons name="lock-closed-outline" size={20} color="#fff" style={styles.icon} />
+          <TextInput 
+            style={styles.input} 
+            placeholder="Senha" 
+            placeholderTextColor="#A0AAB5"
+            value={password} 
+            onChangeText={(t) => { setPassword(t); setErro(''); }} 
+            secureTextEntry 
+          />
+        </View>
 
-      <TouchableOpacity onPress={() => navigation.navigate('Cadastro')} style={{ marginTop: 20 }}>
-        <Text style={{ color: '#007BFF', textAlign: 'center' }}>Ainda não tem conta? Cadastre-se</Text>
-      </TouchableOpacity>
-    </View>
+        {/* Botão Principal */}
+        <TouchableOpacity style={styles.button} onPress={handleLogin}>
+          <Text style={styles.buttonText}>ENTRAR</Text>
+        </TouchableOpacity>
+
+        {/* Links Inferiores */}
+        <TouchableOpacity style={styles.linkButton}>
+          <Text style={styles.linkText}>Esqueceu a senha?</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity onPress={() => navigation.navigate('Cadastro')} style={styles.linkButton}>
+          <Text style={styles.linkText}>Não tem conta? <Text style={styles.linkTextBold}>Cadastre-se</Text></Text>
+        </TouchableOpacity>
+      </View>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, justifyContent: 'center', padding: 20, backgroundColor: '#fff' },
-  title: { fontSize: 35, fontWeight: 'bold', color: '#007BFF', textAlign: 'center' },
-  subtitle: { fontSize: 16, color: '#666', textAlign: 'center', marginBottom: 30 },
-  errorText: { color: 'red', textAlign: 'center', marginBottom: 15, fontWeight: 'bold' },
-  input: { borderWidth: 1, borderColor: '#ddd', padding: 15, borderRadius: 8, marginBottom: 15 },
-  button: { backgroundColor: '#007BFF', padding: 15, borderRadius: 8, alignItems: 'center' },
-  buttonText: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
+  container: { 
+    flex: 1, 
+    backgroundColor: '#0A1E3F', // Azul marinho da identidade
+  },
+  content: {
+    flex: 1,
+    justifyContent: 'center',
+    padding: 30,
+  },
+  logo: {
+    width: '100%',
+    height: 200,
+    marginBottom: 30,
+  },
+  pageTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#fff',
+    textAlign: 'center',
+    marginBottom: 25,
+    letterSpacing: 1,
+  },
+  errorText: { 
+    color: '#FF4D4D', 
+    textAlign: 'center', 
+    marginBottom: 15, 
+    fontWeight: 'bold' 
+  },
+  inputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#4A5D7A', // Borda sutil
+    borderRadius: 8,
+    marginBottom: 15,
+    paddingHorizontal: 15,
+    backgroundColor: 'transparent',
+  },
+  icon: {
+    marginRight: 10,
+  },
+  input: { 
+    flex: 1,
+    paddingVertical: 15, 
+    color: '#fff', // Texto digitado em branco
+    fontSize: 16,
+  },
+  button: { 
+    backgroundColor: '#FF7A00', // Laranja da marca
+    padding: 15, 
+    borderRadius: 8, 
+    alignItems: 'center',
+    marginTop: 10,
+    shadowColor: '#FF7A00',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 5,
+    elevation: 5, // Sombra no Android
+  },
+  buttonText: { 
+    color: '#fff', 
+    fontSize: 16, 
+    fontWeight: 'bold',
+    letterSpacing: 1,
+  },
+  linkButton: {
+    marginTop: 20,
+    alignItems: 'center',
+  },
+  linkText: {
+    color: '#D0D8E5',
+    fontSize: 14,
+  },
+  linkTextBold: {
+    fontWeight: 'bold',
+    color: '#fff',
+  }
 });
