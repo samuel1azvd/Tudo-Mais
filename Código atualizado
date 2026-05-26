@@ -1,0 +1,277 @@
+import React, { useState } from 'react';
+import { 
+  StyleSheet, View, Text, TextInput, TouchableOpacity, 
+  Image, KeyboardAvoidingView, Platform, ScrollView, StatusBar, Animated, Dimensions, Linking 
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { MaterialCommunityIcons, FontAwesome } from '@expo/vector-icons'; 
+
+const { width } = Dimensions.get('window');
+
+export default function App() {
+  const [telaAtual, setTelaAtual] = useState('login');
+  const [email, setEmail] = useState('');
+  const [senha, setSenha] = useState('');
+  const [mensagem, setMensagem] = useState('');
+  const [senhaRecuperada, setSenhaRecuperada] = useState(null);
+  const [categoriaAtiva, setCategoriaAtiva] = useState('TODOS');
+  const [carrinho, setCarrinho] = useState({});
+  const [busca, setBusca] = useState('');
+  
+  const [menuAberto, setMenuAberto] = useState(false);
+  const [animacaoMenu] = useState(new Animated.Value(-width * 0.7));
+
+  const categorias = ['TODOS', 'LIMPEZA', 'DESCARTÁVEIS', 'UTILIDADES'];
+  const produtos = [
+    { id: '1', nome: 'Detergente Industrial 5L', categoria: 'LIMPEZA', preco: 45.90, tag: 'ATACADO' },
+    { id: '2', nome: 'Copo Descartável 200ml (C/100)', categoria: 'DESCARTÁVEIS', preco: 12.50, tag: 'ESTOQUE' },
+    { id: '3', nome: 'Papel Toalha Interfolha Premium', categoria: 'DESCARTÁVEIS', preco: 28.00, tag: 'MAIS VENDIDO' },
+    { id: '4', nome: 'Desinfetante Lavanda 5L', categoria: 'LIMPEZA', preco: 38.90, tag: 'PROMOÇÃO' },
+    { id: '5', nome: 'Pano de Microfibra Multiuso', categoria: 'UTILIDADES', preco: 7.50, tag: 'ESTOQUE' },
+    { id: '6', nome: 'Dispenser para Papel Toalha', categoria: 'UTILIDADES', preco: 89.00, tag: 'LANÇAMENTO' },
+  ];
+
+  const abrirLocalizacao = () => Linking.openURL("https://maps.app.goo.gl/Y6b87NozEcym22FS7");
+  const abrirWhatsapp = () => Linking.openURL(`https://wa.me/556191673962?text=${encodeURI("Olá! Gostaria de tirar uma dúvida.")}`);
+  
+  const mudarTela = (novaTela) => {
+    setTelaAtual(novaTela);
+    setMensagem('');
+    setSenhaRecuperada(null);
+    setMenuAberto(false);
+    animacaoMenu.setValue(-width * 0.7);
+  };
+
+  const toggleMenu = () => {
+    const paraValor = menuAberto ? -width * 0.7 : 0;
+    Animated.timing(animacaoMenu, { toValue: paraValor, duration: 300, useNativeDriver: false }).start();
+    setMenuAberto(!menuAberto);
+  };
+
+  const realizarLogin = async () => {
+    const valor = await AsyncStorage.getItem('@usuario_dados');
+    const dados = valor != null ? JSON.parse(valor) : null;
+    if (dados && email === dados.email && senha === dados.senha) mudarTela('home');
+    else setMensagem("E-mail ou senha incorretos.");
+  };
+
+  const salvarCadastro = async () => {
+    if (!email || !senha) { setMensagem("Preencha os campos!"); return; }
+    await AsyncStorage.setItem('@usuario_dados', JSON.stringify({ email, senha }));
+    setMensagem("Cadastro realizado!");
+    setTimeout(() => mudarTela('login'), 1500);
+  };
+
+  const recuperarSenha = async () => {
+    const valor = await AsyncStorage.getItem('@usuario_dados');
+    const dados = valor != null ? JSON.parse(valor) : null;
+    if (dados && email === dados.email) setSenhaRecuperada(dados.senha);
+    else setMensagem("E-mail não encontrado.");
+  };
+
+  const alterarQuantidade = (id, delta) => {
+    setCarrinho(prev => {
+      const novaQtde = (prev[id] || 0) + delta;
+      const novoCarrinho = { ...prev };
+      if (novaQtde <= 0) delete novoCarrinho[id];
+      else novoCarrinho[id] = novaQtde;
+      return novoCarrinho;
+    });
+  };
+
+  const totalItens = Object.values(carrinho).reduce((a, b) => a + b, 0);
+  const valorTotal = produtos.reduce((acc, p) => acc + (carrinho[p.id] || 0) * p.preco, 0);
+  const produtosFiltrados = produtos.filter(p => (categoriaAtiva === 'TODOS' || p.categoria === categoriaAtiva) && p.nome.toLowerCase().includes(busca.toLowerCase()));
+
+  return (
+    <SafeAreaView style={[styles.container, { backgroundColor: (telaAtual === 'cadastro' || telaAtual === 'esqueci') ? '#000' : '#001133' }]}>
+      <StatusBar barStyle="light-content" />
+
+      {/* MENU LATERAL AJUSTADO */}
+      <Animated.View style={[styles.drawer, { left: animacaoMenu }]}>
+        <View style={styles.drawerUserSection}>
+          <View style={styles.userAvatar}><MaterialCommunityIcons name="account" size={28} color="#FFF" /></View>
+          <View><Text style={styles.userName}>PERFIL</Text><Text style={styles.userEmail}>{email || 'Convidado'}</Text></View>
+        </View>
+        <View style={styles.separator} />
+        <Text style={styles.drawerLabel}>CATEGORIAS</Text>
+        {categorias.map((cat, idx) => {
+          let iconName = "view-grid-outline";
+          if(cat === 'LIMPEZA') iconName = "broom";
+          if(cat === 'DESCARTÁVEIS') iconName = "cup-water";
+          if(cat === 'UTILIDADES') iconName = "tools"; // Ícone diferenciado de TODOS
+
+          return (
+            <TouchableOpacity key={idx} style={styles.drawerItem} onPress={() => { setCategoriaAtiva(cat); toggleMenu(); }}>
+              <MaterialCommunityIcons name={iconName} size={22} color={categoriaAtiva === cat ? "#FF6600" : "#FFF"} style={{marginRight: 12}}/>
+              <Text style={[styles.drawerItemText, categoriaAtiva === cat && {color: '#FF6600', fontWeight: 'bold'}]}>{cat}</Text>
+            </TouchableOpacity>
+          );
+        })}
+        <View style={styles.separator} />
+        <TouchableOpacity style={styles.drawerExtraItem} onPress={abrirLocalizacao}>
+          <MaterialCommunityIcons name="map-marker-radius" size={22} color="#FFF" style={{marginRight: 12}} />
+          <Text style={styles.extraItemText}>Nossa Unidade</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.drawerExtraItem} onPress={abrirWhatsapp}>
+          <FontAwesome name="whatsapp" size={22} color="#25D366" style={{marginRight: 12}} />
+          <Text style={[styles.extraItemText, {color: '#25D366'}]}>Suporte WhatsApp</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.btnSairDrawer} onPress={() => mudarTela('login')}>
+          <MaterialCommunityIcons name="logout" size={20} color="#FF6600" style={{marginRight: 10}} />
+          <Text style={styles.logoutText}>SAIR DA CONTA</Text>
+        </TouchableOpacity>
+      </Animated.View>
+
+      {menuAberto && <TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={toggleMenu} />}
+
+      {telaAtual === 'home' ? (
+        <View style={{flex: 1}}>
+          <View style={styles.headerHomePremium}>
+            <View style={styles.topoHeader}>
+              <TouchableOpacity onPress={toggleMenu}><MaterialCommunityIcons name="menu" size={32} color="#FFF" /></TouchableOpacity>
+              <Image source={require('./assets/logo_branca.png')} style={styles.logoHomeCentral} resizeMode="contain" />
+              <View style={{width: 32}} />
+            </View>
+            <View style={styles.containerBusca}>
+              <MaterialCommunityIcons name="magnify" size={20} color="rgba(255,255,255,0.5)" />
+              <TextInput style={styles.inputBusca} placeholder="O que você procura hoje?" placeholderTextColor="rgba(255,255,255,0.5)" value={busca} onChangeText={setBusca} />
+            </View>
+          </View>
+
+          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{paddingBottom: 120}}>
+            <View style={styles.bannerInstitucional}>
+              <Text style={styles.bannerTitle}>Tudo Mais+ Limpeza</Text>
+              <Text style={styles.bannerSub}>Soluções completas para ambientes profissionais e residenciais.</Text>
+            </View>
+            <View style={styles.homeContent}>
+              <Text style={styles.sectionTitle}>{categoriaAtiva}</Text>
+              <View style={styles.gridProdutos}>
+                {produtosFiltrados.map((item) => (
+                  <View key={item.id} style={styles.cardProduto}>
+                    <View style={styles.tagBadge}><Text style={styles.tagText}>{item.tag}</Text></View>
+                    <View style={styles.imgPlaceholder}><Text style={styles.txtFoto}>FOTO</Text></View>
+                    <Text style={styles.nomeProd} numberOfLines={2}>{item.nome}</Text>
+                    <Text style={styles.precoProd}>R$ {item.preco.toFixed(2)}</Text>
+                    <TouchableOpacity style={styles.btnComprar} onPress={() => alterarQuantidade(item.id, 1)}>
+                      <Text style={styles.btnComprarText}>{carrinho[item.id] ? `ADICIONADO (${carrinho[item.id]})` : "ADICIONAR"}</Text>
+                    </TouchableOpacity>
+                  </View>
+                ))}
+              </View>
+            </View>
+          </ScrollView>
+
+          {totalItens > 0 && (
+            <TouchableOpacity style={styles.carrinhoNovo}>
+               <View style={styles.carrinhoBadge}><Text style={styles.carrinhoBadgeText}>{totalItens}</Text></View>
+               <Text style={styles.carrinhoTextoMain}>Ver Pedido</Text>
+               <Text style={styles.carrinhoPrecoTotal}>R$ {valorTotal.toFixed(2)}</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      ) : (
+        <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={{flex: 1}}>
+          <ScrollView contentContainerStyle={styles.scrollLogin}>
+            <Image source={require('./assets/logo_branca.png')} style={styles.imgLogoLogin} resizeMode="contain" />
+            <View style={styles.boxLogin}>
+              {telaAtual === 'login' && (
+                <>
+                  <Text style={styles.labelLogin}>Entrar</Text>
+                  {mensagem !== '' && <Text style={styles.msgText}>{mensagem}</Text>}
+                  <TextInput style={styles.inputLogin} placeholder="E-mail" value={email} onChangeText={setEmail} placeholderTextColor="#999" autoCapitalize="none"/>
+                  <TextInput style={styles.inputLogin} placeholder="Senha" secureTextEntry value={senha} onChangeText={setSenha} placeholderTextColor="#999"/>
+                  <TouchableOpacity onPress={() => mudarTela('esqueci')}><Text style={styles.forgotText}>Esqueceu a senha?</Text></TouchableOpacity>
+                  <TouchableOpacity style={styles.btnAcessar} onPress={realizarLogin}><Text style={styles.btnAcessarText}>ACESSAR CATÁLOGO</Text></TouchableOpacity>
+                  <View style={styles.storeContainer}>
+                    <TouchableOpacity style={styles.btnStore}><MaterialCommunityIcons name="apple" size={20} color="#FFF" /><Text style={styles.textStore}>App Store</Text></TouchableOpacity>
+                    <TouchableOpacity style={styles.btnStore}><MaterialCommunityIcons name="google-play" size={20} color="#FFF" /><Text style={styles.textStore}>Play Store</Text></TouchableOpacity>
+                  </View>
+                  <TouchableOpacity onPress={() => mudarTela('cadastro')}><Text style={styles.textFooter}>Não tem conta? <Text style={{color: '#FF6600', fontWeight: 'bold'}}>Cadastre-se</Text></Text></TouchableOpacity>
+                </>
+              )}
+              {telaAtual === 'cadastro' && (
+                <>
+                  <Text style={[styles.labelLogin, {color: '#FF6600'}]}>Criar Conta</Text>
+                  {mensagem !== '' && <Text style={styles.msgText}>{mensagem}</Text>}
+                  <TextInput style={styles.inputLogin} placeholder="E-mail" value={email} onChangeText={setEmail} placeholderTextColor="#999" autoCapitalize="none"/>
+                  <TextInput style={styles.inputLogin} placeholder="Senha" secureTextEntry value={senha} onChangeText={setSenha} placeholderTextColor="#999"/>
+                  <TouchableOpacity style={[styles.btnAcessar, {backgroundColor: '#FF6600'}]} onPress={salvarCadastro}><Text style={styles.btnAcessarText}>CADASTRAR</Text></TouchableOpacity>
+                  <TouchableOpacity onPress={() => mudarTela('login')}><Text style={styles.textFooter}>Já tem conta? <Text style={{color: '#FFF', fontWeight: 'bold'}}>Logar</Text></Text></TouchableOpacity>
+                </>
+              )}
+              {telaAtual === 'esqueci' && (
+                <>
+                  <Text style={[styles.labelLogin, {color: '#FF6600'}]}>Recuperar</Text>
+                  <TextInput style={styles.inputLogin} placeholder="E-mail" value={email} onChangeText={setEmail} placeholderTextColor="#999" autoCapitalize="none"/>
+                  {senhaRecuperada ? <View style={styles.resultBox}><Text style={styles.resultValue}>{senhaRecuperada}</Text></View> : <Text style={styles.msgText}>{mensagem}</Text>}
+                  <TouchableOpacity style={[styles.btnAcessar, {backgroundColor: '#FF6600'}]} onPress={recuperarSenha}><Text style={styles.btnAcessarText}>VERIFICAR</Text></TouchableOpacity>
+                  <TouchableOpacity onPress={() => mudarTela('login')}><Text style={styles.textFooter}>Voltar</Text></TouchableOpacity>
+                </>
+              )}
+            </View>
+          </ScrollView>
+        </KeyboardAvoidingView>
+      )}
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1 },
+  headerHomePremium: { paddingHorizontal: 20, paddingTop: 10, paddingBottom: 20, borderBottomWidth: 1, borderBottomColor: 'rgba(255,102,0,0.1)' },
+  topoHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
+  logoHomeCentral: { width: 180, height: 60 },
+  containerBusca: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 12, paddingHorizontal: 15, height: 45 },
+  inputBusca: { flex: 1, color: '#FFF', marginLeft: 10 },
+  bannerInstitucional: { margin: 20, padding: 20, backgroundColor: '#001a4d', borderRadius: 15, borderLeftWidth: 5, borderLeftColor: '#FF6600' },
+  bannerTitle: { color: '#FFF', fontSize: 18, fontWeight: 'bold' },
+  bannerSub: { color: 'rgba(255,255,255,0.7)', fontSize: 13, marginTop: 5 },
+  homeContent: { paddingHorizontal: 20 },
+  sectionTitle: { color: '#FF6600', fontSize: 22, fontWeight: 'bold', marginBottom: 20 },
+  gridProdutos: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
+  cardProduto: { backgroundColor: '#FFF', width: '48%', borderRadius: 15, padding: 12, marginBottom: 15, elevation: 5 },
+  tagBadge: { position: 'absolute', top: 10, left: 10, backgroundColor: '#001133', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 5, zIndex: 1 },
+  tagText: { color: '#FF6600', fontSize: 8, fontWeight: 'bold' },
+  imgPlaceholder: { width: '100%', height: 100, backgroundColor: '#f0f0f0', borderRadius: 10, justifyContent: 'center', alignItems: 'center', marginBottom: 10 },
+  txtFoto: { color: '#CCC', fontWeight: 'bold', fontSize: 10 },
+  nomeProd: { color: '#333', fontSize: 13, fontWeight: 'bold', height: 35 },
+  precoProd: { color: '#001133', fontSize: 16, fontWeight: '900', marginVertical: 8 },
+  btnComprar: { backgroundColor: '#FF6600', padding: 10, borderRadius: 8, alignItems: 'center' },
+  btnComprarText: { color: '#FFF', fontSize: 10, fontWeight: 'bold' },
+  carrinhoNovo: { position: 'absolute', bottom: 30, left: 20, right: 20, backgroundColor: '#FF6600', borderRadius: 20, height: 70, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, elevation: 10 },
+  carrinhoBadge: { backgroundColor: '#001133', width: 30, height: 30, borderRadius: 15, justifyContent: 'center', alignItems: 'center' },
+  carrinhoBadgeText: { color: '#FFF', fontWeight: 'bold' },
+  carrinhoTextoMain: { color: '#FFF', fontWeight: 'bold', fontSize: 18, marginLeft: 15, flex: 1 },
+  carrinhoPrecoTotal: { color: '#001133', fontSize: 20, fontWeight: '900' },
+  scrollLogin: { flexGrow: 1, justifyContent: 'center', padding: 35 },
+  imgLogoLogin: { width: '100%', height: 140, marginBottom: 30 },
+  boxLogin: { width: '100%' },
+  labelLogin: { color: '#FFF', fontSize: 26, fontWeight: 'bold', marginBottom: 20 },
+  inputLogin: { backgroundColor: '#FFF', borderRadius: 12, padding: 18, marginBottom: 15, color: '#000' },
+  btnAcessar: { backgroundColor: '#FF6600', padding: 20, borderRadius: 12, alignItems: 'center' },
+  btnAcessarText: { color: '#FFF', fontWeight: 'bold' },
+  forgotText: { color: '#FFF', textAlign: 'right', marginBottom: 20 },
+  msgText: { color: '#FF6600', textAlign: 'center', marginBottom: 15, fontWeight: 'bold' },
+  resultBox: { backgroundColor: '#111', padding: 20, borderRadius: 12, marginVertical: 20, alignItems: 'center' },
+  resultValue: { color: '#FFF', fontSize: 24, fontWeight: 'bold' },
+  textFooter: { color: '#FFF', textAlign: 'center', marginTop: 30 },
+  storeContainer: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 30 },
+  btnStore: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.1)', padding: 12, borderRadius: 10, width: '48%', justifyContent: 'center' },
+  textStore: { color: '#FFF', fontSize: 12, marginLeft: 8 },
+  drawer: { position: 'absolute', top: 0, bottom: 0, width: width * 0.7, backgroundColor: '#00081a', zIndex: 1000, padding: 20, borderRightWidth: 1, borderRightColor: '#FF6600' },
+  drawerUserSection: { flexDirection: 'row', alignItems: 'center', marginTop: 40 },
+  userAvatar: { width: 50, height: 50, borderRadius: 25, backgroundColor: '#FF6600', justifyContent: 'center', alignItems: 'center', marginRight: 12 },
+  userName: { color: '#FFF', fontSize: 16, fontWeight: 'bold', letterSpacing: 1 },
+  userEmail: { color: '#CCC', fontSize: 11 },
+  separator: { height: 1, backgroundColor: 'rgba(255,255,255,0.1)', marginVertical: 20 },
+  drawerLabel: { color: '#FF6600', fontSize: 10, fontWeight: 'bold', marginBottom: 15 },
+  drawerItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12 },
+  drawerItemText: { color: '#FFF', fontSize: 15 },
+  drawerExtraItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12 },
+  extraItemText: { color: '#FFF', fontSize: 15 },
+  btnSairDrawer: { flexDirection: 'row', alignItems: 'center', marginTop: 50 },
+  logoutText: { color: '#FF6600', fontWeight: 'bold', fontSize: 12 },
+  overlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.7)', zIndex: 999 }
+});
